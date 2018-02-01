@@ -16,18 +16,26 @@ func JSONLogger(url *url.URL, status int, len int64, d time.Duration) {
 	os.Stderr.WriteString(JSONLogMessage(time.Now, url, status, len, d))
 }
 
+const jsonLogMessageFormat = `{ "time": "%s", "src": "rl", "status": %d, "%s": 1, "len": %d, "ms": %d, "path": "%s" }` + "\n"
+
+var httpStatusKeys = map[int]string{
+	1: "http_1xx",
+	2: "http_2xx",
+	3: "http_3xx",
+	4: "http_4xx",
+	5: "http_5xx",
+}
+
 // JSONLogMessage formats a log message to JSON.
 func JSONLogMessage(now func() time.Time, url *url.URL, status int, len int64, d time.Duration) string {
 	s := status / 100
-
-	return fmt.Sprintf(`{ "time": "%s", "src": "rl", "status": %d, "%s": 1, "len": %d, "ms": %d, "path": "%s" }%s`,
+	return fmt.Sprintf(jsonLogMessageFormat,
 		now().UTC().Format(time.RFC3339),
 		status,
-		fmt.Sprintf("http_%dxx", s),
+		httpStatusKeys[s],
 		len,
 		d.Nanoseconds()/1000000,
-		url.Path,
-		"\n")
+		url.Path)
 }
 
 // Handler provides a way to log HTTP requests - the status code, http category, size and duration.
@@ -58,8 +66,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var written int64
-	var status int
-	statusWritten := false
+	var status = -1
 
 	wp := writerProxy{
 		h: func() http.Header {
@@ -72,7 +79,6 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 		wh: func(code int) {
 			status = code
-			statusWritten = true
 			w.WriteHeader(code)
 		},
 	}
@@ -82,7 +88,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	duration := time.Now().Sub(start)
 
 	// Use default status.
-	if !statusWritten {
+	if status == -1 {
 		status = 200
 	}
 

@@ -161,7 +161,7 @@ func TestHandlerWithoutDelay(t *testing.T) {
 	}
 }
 
-func TestDurations(t *testing.T) {
+func TestHandlerDurationLogging(t *testing.T) {
 	tests := []struct {
 		name    string
 		handler http.HandlerFunc
@@ -225,7 +225,7 @@ func TestJSONLogMessage(t *testing.T) {
 			status:   200,
 			written:  454,
 			duration: time.Millisecond * 300,
-			expected: `{ "time": "2000-01-02T03:04:05Z", "src": "rl", "status": 200, "http_2xx": 1, "len": 454, "ms": 300, "path": "/test" }`,
+			expected: `{ "time": "2000-01-02T03:04:05Z", "src": "rl", "status": 200, "http_2xx": 1, "len": 454, "ms": 300, "path": "/test" }` + "\n",
 		},
 	}
 
@@ -243,5 +243,28 @@ func TestJSONLogMessage(t *testing.T) {
 		if !valid {
 			t.Errorf("%s: failed to parse JSON message '%v'", test.name, actual)
 		}
+	}
+}
+
+func BenchmarkJSONLogMessage(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		JSONLogMessage(time.Now, &url.URL{Path: "/index.html"}, http.StatusOK, 1024, time.Millisecond*50)
+	}
+}
+
+func BenchmarkHandler(b *testing.B) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("OK"))
+	})
+	h := NewHandler(next)
+	h.Logger = func(url *url.URL, status int, len int64, d time.Duration) {
+		// Noop
+	}
+
+	r := httptest.NewRequest(http.MethodGet, "/index.html", nil)
+	w := httptest.NewRecorder()
+
+	for i := 0; i < b.N; i++ {
+		h.ServeHTTP(w, r)
 	}
 }
