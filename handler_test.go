@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -204,6 +205,60 @@ func TestHandlerDurationLogging(t *testing.T) {
 
 		if actualDuration < test.min || actualDuration > test.max {
 			t.Errorf("%s: expected duration between %v and %v, but got %v", test.name, test.min, test.max, actualDuration)
+		}
+	}
+}
+
+func TestHeadersAreNotLost(t *testing.T) {
+	tests := []struct {
+		name            string
+		handler         http.HandlerFunc
+		expectedHeaders http.Header
+	}{
+		{
+			name: "no headers",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("OK"))
+			},
+			expectedHeaders: http.Header{},
+		},
+		{
+			name: "add X-Powered-By header",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Add("X-Powered-By", "Go")
+				w.Write([]byte("OK"))
+			},
+			expectedHeaders: http.Header{
+				"X-Powered-By": []string{"Go"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "/test", nil)
+
+		var actualDuration time.Duration
+
+		h := Handler{
+			Next: test.handler,
+			Logger: func(url *url.URL, status int, len int64, d time.Duration) {
+				actualDuration = d
+			},
+			Skip: SkipHealthEndpoint,
+		}
+		h.ServeHTTP(w, r)
+
+		for k, v1 := range test.expectedHeaders {
+			var v2 []string
+			var ok bool
+			if v2, ok = w.HeaderMap[k]; !ok {
+				t.Errorf("%s: expected written headers to contain key '%v', but it wasn't written", test.name, k)
+				continue
+			}
+			if !reflect.DeepEqual(v1, v2) {
+				t.Errorf("%s: expected written header '%v' to equal '%v', but got '%v'", test.name, k, v1, v2)
+			}
 		}
 	}
 }
