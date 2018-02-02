@@ -41,6 +41,6 @@ func main() {
 ### Example output from JSON logging
 
 ```json
-{ "time": "2018-02-01T18:41:31Z", "src": "rl", "status": 404, "http_4xx": 1, "len": 19, "ms": 2, "path": "/other" }
-{ "time": "2018-02-01T18:41:39Z", "src": "rl", "status": 200, "http_2xx": 1, "len": 12, "ms": 4, "path": "/" }
+{"time":"2018-02-01T18:41:31Z","src":"rl","status":404,"http_4xx":1,"len":19,"ms":2,"path":"/other"}
+{"time":"2018-02-01T18:41:39Z","src":"rl","status":200,"http_2xx":1,"len":12,"ms":4,"path":"/"}
 ```
