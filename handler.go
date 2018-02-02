@@ -1,10 +1,11 @@
 package responselogger
 
 import (
-	"fmt"
+	"bytes"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -16,8 +17,6 @@ func JSONLogger(url *url.URL, status int, len int64, d time.Duration) {
 	os.Stderr.WriteString(JSONLogMessage(time.Now, url, status, len, d))
 }
 
-const jsonLogMessageFormat = `{ "time": "%s", "src": "rl", "status": %d, "%s": 1, "len": %d, "ms": %d, "path": "%s" }` + "\n"
-
 var httpStatusKeys = map[int]string{
 	1: "http_1xx",
 	2: "http_2xx",
@@ -26,16 +25,45 @@ var httpStatusKeys = map[int]string{
 	5: "http_5xx",
 }
 
+var jsonEscapesMap = map[rune]string{
+	0x0022: `\"`,
+	0x005C: `\\`,
+	0x0008: `\b`,
+	0x000C: `\f`,
+	0x000A: `\n`,
+	0x000D: `\r`,
+	0x0009: `\n`,
+}
+
+func jsonEscape(s string) string {
+	b := bytes.NewBufferString("")
+	for _, r := range s {
+		// Skip control chars, they're not valid in URLs either.
+		if r >= 0x0000 && r <= 0x001F {
+			continue
+		}
+		// Replace others with escaped values.
+		if replacement, ok := jsonEscapesMap[r]; ok {
+			b.WriteString(replacement)
+			continue
+		}
+		// Use the character.
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
 // JSONLogMessage formats a log message to JSON.
-func JSONLogMessage(now func() time.Time, url *url.URL, status int, len int64, d time.Duration) string {
+func JSONLogMessage(now func() time.Time, u *url.URL, status int, len int64, d time.Duration) string {
 	s := status / 100
-	return fmt.Sprintf(jsonLogMessageFormat,
-		now().UTC().Format(time.RFC3339),
-		status,
-		httpStatusKeys[s],
-		len,
-		d.Nanoseconds()/1000000,
-		url.Path)
+	return `{` +
+		`"time":"` + now().UTC().Format(time.RFC3339) + `",` +
+		`"src":"rl",` +
+		`"status":` + strconv.Itoa(status) + `,` +
+		`"` + httpStatusKeys[s] + `":1,` +
+		`"len":` + strconv.FormatInt(len, 10) + `,` +
+		`"ms":` + strconv.FormatInt(d.Nanoseconds()/1000000, 10) + `,` +
+		`"path":"` + jsonEscape(u.Path) + `"}` + "\n"
 }
 
 // Handler provides a way to log HTTP requests - the status code, http category, size and duration.

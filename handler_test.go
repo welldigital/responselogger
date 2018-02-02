@@ -225,7 +225,7 @@ func TestJSONLogMessage(t *testing.T) {
 			status:   200,
 			written:  454,
 			duration: time.Millisecond * 300,
-			expected: `{ "time": "2000-01-02T03:04:05Z", "src": "rl", "status": 200, "http_2xx": 1, "len": 454, "ms": 300, "path": "/test" }` + "\n",
+			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":200,"http_2xx":1,"len":454,"ms":300,"path":"/test"}` + "\n",
 		},
 	}
 
@@ -257,14 +257,67 @@ func BenchmarkHandler(b *testing.B) {
 		w.Write([]byte("OK"))
 	})
 	h := NewHandler(next)
-	h.Logger = func(url *url.URL, status int, len int64, d time.Duration) {
-		// Noop
-	}
+	h.Logger = func(url *url.URL, status int, len int64, d time.Duration) {}
 
 	r := httptest.NewRequest(http.MethodGet, "/index.html", nil)
 	w := httptest.NewRecorder()
 
 	for i := 0; i < b.N; i++ {
 		h.ServeHTTP(w, r)
+	}
+}
+
+func TestJSONEscape(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{
+			input:    "example.com",
+			expected: "example.com",
+		},
+		{
+			input:    "/",
+			expected: "/",
+		},
+		{
+			input:    `/test/"q"`,
+			expected: `/test/\"q\"`,
+		},
+		{
+			input:    "\n",
+			expected: "",
+		},
+		{
+			input:    "\t",
+			expected: "",
+		},
+		{
+			input:    "/test/section",
+			expected: "/test/section",
+		},
+		{
+			input:    "/test/中文",
+			expected: "/test/中文",
+		},
+		{
+			input:    "/±!@£$^&*()_+/section",
+			expected: "/±!@£$^&*()_+/section",
+		},
+		{
+			input:    "search/%20%42",
+			expected: "search/%20%42",
+		},
+		{
+			input:    "search/\\/test",
+			expected: "search/\\\\/test",
+		},
+	}
+
+	for _, test := range tests {
+		actual := jsonEscape(test.input)
+		if test.expected != actual {
+			t.Errorf("'%v': expected '%s', got '%s'", test.input, test.expected, actual)
+		}
 	}
 }
