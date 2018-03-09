@@ -17,14 +17,6 @@ func JSONLogger(url *url.URL, status int, len int64, d time.Duration) {
 	os.Stderr.WriteString(JSONLogMessage(time.Now, url, status, len, d))
 }
 
-var httpStatusKeys = map[int]string{
-	1: "http_1xx",
-	2: "http_2xx",
-	3: "http_3xx",
-	4: "http_4xx",
-	5: "http_5xx",
-}
-
 var jsonEscapesMap = map[rune]string{
 	0x0022: `\"`,
 	0x005C: `\\`,
@@ -55,12 +47,12 @@ func jsonEscape(s string) string {
 
 // JSONLogMessage formats a log message to JSON.
 func JSONLogMessage(now func() time.Time, u *url.URL, status int, len int64, d time.Duration) string {
-	s := status / 100
+	c := "http_" + strconv.Itoa(status/100) + "xx"
 	return `{` +
 		`"time":"` + now().UTC().Format(time.RFC3339) + `",` +
 		`"src":"rl",` +
 		`"status":` + strconv.Itoa(status) + `,` +
-		`"` + httpStatusKeys[s] + `":1,` +
+		`"` + c + `":1,` +
 		`"len":` + strconv.FormatInt(len, 10) + `,` +
 		`"ms":` + strconv.FormatInt(d.Nanoseconds()/1000000, 10) + `,` +
 		`"path":"` + jsonEscape(u.Path) + `"}` + "\n"

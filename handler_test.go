@@ -282,6 +282,24 @@ func TestJSONLogMessage(t *testing.T) {
 			duration: time.Millisecond * 300,
 			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":200,"http_2xx":1,"len":454,"ms":300,"path":"/test"}` + "\n",
 		},
+		{
+			name:     "404",
+			now:      func() time.Time { return time.Date(2000, time.January, 2, 3, 4, 5, 6, time.UTC) },
+			url:      "/test",
+			status:   404,
+			written:  454,
+			duration: time.Millisecond * 300,
+			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":404,"http_4xx":1,"len":454,"ms":300,"path":"/test"}` + "\n",
+		},
+		{
+			name:     "out of bounds status code",
+			now:      func() time.Time { return time.Date(2000, time.January, 2, 3, 4, 5, 6, time.UTC) },
+			url:      "/test",
+			status:   999,
+			written:  454,
+			duration: time.Millisecond * 300,
+			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":999,"http_9xx":1,"len":454,"ms":300,"path":"/test"}` + "\n",
+		},
 	}
 
 	for _, test := range tests {
