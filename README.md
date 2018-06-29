@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/a-h/responselogger"
+	"github.com/welldigital/responselogger"
 )
 
 func main() {
