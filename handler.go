@@ -10,11 +10,11 @@ import (
 )
 
 // Logger defines how HTTP requests are logged, e.g. to the console, or in JSON format (see JSONLogger).
-type Logger func(url *url.URL, status int, len int64, d time.Duration)
+type Logger func(method string, url *url.URL, status int, len int64, d time.Duration)
 
 // JSONLogger uses logrus to log the HTTP request in JSON format to os.Stderr.
-func JSONLogger(url *url.URL, status int, len int64, d time.Duration) {
-	os.Stderr.WriteString(JSONLogMessage(time.Now, url, status, len, d))
+func JSONLogger(method string, url *url.URL, status int, len int64, d time.Duration) {
+	os.Stderr.WriteString(JSONLogMessage(time.Now, method, url, status, len, d))
 }
 
 var jsonEscapesMap = map[rune]string{
@@ -46,7 +46,7 @@ func jsonEscape(s string) string {
 }
 
 // JSONLogMessage formats a log message to JSON.
-func JSONLogMessage(now func() time.Time, u *url.URL, status int, len int64, d time.Duration) string {
+func JSONLogMessage(now func() time.Time, method string, u *url.URL, status int, len int64, d time.Duration) string {
 	c := "http_" + strconv.Itoa(status/100) + "xx"
 	return `{` +
 		`"time":"` + now().UTC().Format(time.RFC3339) + `",` +
@@ -55,6 +55,7 @@ func JSONLogMessage(now func() time.Time, u *url.URL, status int, len int64, d t
 		`"` + c + `":1,` +
 		`"len":` + strconv.FormatInt(len, 10) + `,` +
 		`"ms":` + strconv.FormatInt(d.Nanoseconds()/1000000, 10) + `,` +
+		`"method":"` + jsonEscape(method) + `",` +
 		`"path":"` + jsonEscape(u.Path) + `"}` + "\n"
 }
 
@@ -112,7 +113,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		status = 200
 	}
 
-	h.Logger(r.URL, status, written, duration)
+	h.Logger(r.Method, r.URL, status, written, duration)
 }
 
 type writerProxy struct {

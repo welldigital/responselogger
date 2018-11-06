@@ -119,6 +119,7 @@ func TestHandlerWithoutDelay(t *testing.T) {
 	for _, test := range tests {
 		w := httptest.NewRecorder()
 
+		var loggedMethod string
 		var loggedURL string
 		var loggedStatus int
 		var loggedLength int64
@@ -126,7 +127,8 @@ func TestHandlerWithoutDelay(t *testing.T) {
 
 		h := Handler{
 			Next: test.handler,
-			Logger: func(url *url.URL, status int, len int64, d time.Duration) {
+			Logger: func(method string, url *url.URL, status int, len int64, d time.Duration) {
+				loggedMethod = method
 				loggedURL = url.String()
 				loggedStatus = status
 				loggedLength = len
@@ -141,6 +143,9 @@ func TestHandlerWithoutDelay(t *testing.T) {
 		}
 
 		if messageLogged {
+			if test.r.Method != loggedMethod {
+				t.Errorf("%s: expected method '%v' to be logged, but got '%v'", test.name, test.r.Method, loggedMethod)
+			}
 			if test.r.URL.String() != loggedURL {
 				t.Errorf("%s: expected URL %v to be logged, but got %v", test.name, test.r.URL.String(), loggedURL)
 			}
@@ -196,7 +201,7 @@ func TestHandlerDurationLogging(t *testing.T) {
 
 		h := Handler{
 			Next: test.handler,
-			Logger: func(url *url.URL, status int, len int64, d time.Duration) {
+			Logger: func(method string, url *url.URL, status int, len int64, d time.Duration) {
 				actualDuration = d
 			},
 			Skip: SkipHealthEndpoint,
@@ -238,12 +243,9 @@ func TestHeadersAreNotLost(t *testing.T) {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/test", nil)
 
-		var actualDuration time.Duration
-
 		h := Handler{
 			Next: test.handler,
-			Logger: func(url *url.URL, status int, len int64, d time.Duration) {
-				actualDuration = d
+			Logger: func(method string, url *url.URL, status int, len int64, d time.Duration) {
 			},
 			Skip: SkipHealthEndpoint,
 		}
@@ -267,6 +269,7 @@ func TestJSONLogMessage(t *testing.T) {
 	tests := []struct {
 		name     string
 		now      func() time.Time
+		method   string
 		url      string
 		status   int
 		written  int64
@@ -276,29 +279,32 @@ func TestJSONLogMessage(t *testing.T) {
 		{
 			name:     "basic",
 			now:      func() time.Time { return time.Date(2000, time.January, 2, 3, 4, 5, 6, time.UTC) },
+			method:   "GET",
 			url:      "/test",
 			status:   200,
 			written:  454,
 			duration: time.Millisecond * 300,
-			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":200,"http_2xx":1,"len":454,"ms":300,"path":"/test"}` + "\n",
+			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":200,"http_2xx":1,"len":454,"ms":300,"method":"GET","path":"/test"}` + "\n",
 		},
 		{
 			name:     "404",
 			now:      func() time.Time { return time.Date(2000, time.January, 2, 3, 4, 5, 6, time.UTC) },
+			method:   "GET",
 			url:      "/test",
 			status:   404,
 			written:  454,
 			duration: time.Millisecond * 300,
-			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":404,"http_4xx":1,"len":454,"ms":300,"path":"/test"}` + "\n",
+			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":404,"http_4xx":1,"len":454,"ms":300,"method":"GET","path":"/test"}` + "\n",
 		},
 		{
 			name:     "out of bounds status code",
 			now:      func() time.Time { return time.Date(2000, time.January, 2, 3, 4, 5, 6, time.UTC) },
+			method:   "POST",
 			url:      "/test",
 			status:   999,
 			written:  454,
 			duration: time.Millisecond * 300,
-			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":999,"http_9xx":1,"len":454,"ms":300,"path":"/test"}` + "\n",
+			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":999,"http_9xx":1,"len":454,"ms":300,"method":"POST","path":"/test"}` + "\n",
 		},
 	}
 
@@ -308,7 +314,7 @@ func TestJSONLogMessage(t *testing.T) {
 			t.Fatalf("%s: failed to parse URL '%v' with error: %v", test.name, test.url, err)
 		}
 
-		actual := JSONLogMessage(test.now, u, test.status, test.written, test.duration)
+		actual := JSONLogMessage(test.now, test.method, u, test.status, test.written, test.duration)
 		if test.expected != actual {
 			t.Errorf("%s: expected '%v', got: '%v'", test.name, test.expected, actual)
 		}
@@ -321,7 +327,7 @@ func TestJSONLogMessage(t *testing.T) {
 
 func BenchmarkJSONLogMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		JSONLogMessage(time.Now, &url.URL{Path: "/index.html"}, http.StatusOK, 1024, time.Millisecond*50)
+		JSONLogMessage(time.Now, "GET", &url.URL{Path: "/index.html"}, http.StatusOK, 1024, time.Millisecond*50)
 	}
 }
 
@@ -330,7 +336,7 @@ func BenchmarkHandler(b *testing.B) {
 		w.Write([]byte("OK"))
 	})
 	h := NewHandler(next)
-	h.Logger = func(url *url.URL, status int, len int64, d time.Duration) {}
+	h.Logger = func(method string, url *url.URL, status int, len int64, d time.Duration) {}
 
 	r := httptest.NewRequest(http.MethodGet, "/index.html", nil)
 	w := httptest.NewRecorder()
