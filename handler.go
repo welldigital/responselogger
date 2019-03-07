@@ -2,6 +2,7 @@ package responselogger
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -10,11 +11,11 @@ import (
 )
 
 // Logger defines how HTTP requests are logged, e.g. to the console, or in JSON format (see JSONLogger).
-type Logger func(method string, url *url.URL, status int, len int64, d time.Duration)
+type Logger func(method string, url *url.URL, status int, len int64, d time.Duration, extra map[string]string)
 
 // JSONLogger uses logrus to log the HTTP request in JSON format to os.Stderr.
-func JSONLogger(method string, url *url.URL, status int, len int64, d time.Duration) {
-	os.Stderr.WriteString(JSONLogMessage(time.Now, method, url, status, len, d))
+func JSONLogger(method string, url *url.URL, status int, len int64, d time.Duration, extra map[string]string) {
+	os.Stderr.WriteString(JSONLogMessage(time.Now, method, url, status, len, d, extra))
 }
 
 var jsonEscapesMap = map[rune]string{
@@ -46,8 +47,14 @@ func jsonEscape(s string) string {
 }
 
 // JSONLogMessage formats a log message to JSON.
-func JSONLogMessage(now func() time.Time, method string, u *url.URL, status int, len int64, d time.Duration) string {
+func JSONLogMessage(now func() time.Time, method string, u *url.URL, status int, len int64, d time.Duration, extra map[string]string) string {
 	c := "http_" + strconv.Itoa(status/100) + "xx"
+	e := ""
+	if extra != nil {
+		for k, v := range extra {
+			e += fmt.Sprintf(`"%s":"%v",`, k, v)
+		}
+	}
 	return `{` +
 		`"time":"` + now().UTC().Format(time.RFC3339) + `",` +
 		`"src":"rl",` +
@@ -56,6 +63,7 @@ func JSONLogMessage(now func() time.Time, method string, u *url.URL, status int,
 		`"len":` + strconv.FormatInt(len, 10) + `,` +
 		`"ms":` + strconv.FormatInt(d.Nanoseconds()/1000000, 10) + `,` +
 		`"method":"` + jsonEscape(method) + `",` +
+		e +
 		`"path":"` + jsonEscape(u.Path) + `"}` + "\n"
 }
 
@@ -64,6 +72,7 @@ type Handler struct {
 	Next   http.Handler
 	Logger Logger
 	Skip   func(r *http.Request) bool
+	Extra  func(w http.ResponseWriter, r *http.Request) map[string]string
 }
 
 // NewHandler creates a new responselogger.Handler with default JSON logger which skips logging '/health' URLs.
@@ -113,7 +122,12 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		status = 200
 	}
 
-	h.Logger(r.Method, r.URL, status, written, duration)
+	var extra map[string]string
+	if h.Extra != nil {
+		extra = h.Extra(w, r)
+	}
+
+	h.Logger(r.Method, r.URL, status, written, duration, extra)
 }
 
 type writerProxy struct {
