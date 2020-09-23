@@ -5,10 +5,10 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/welldigital/responselogger/processor/stats"
 
 	"github.com/welldigital/responselogger/processor/urlpattern"
@@ -17,8 +17,7 @@ import (
 func main() {
 	f, err := os.Open("logs.json")
 	if err != nil {
-		fmt.Println(errors.Wrap(err, "could not open logs.json"))
-		os.Exit(1)
+		log.Fatalf("could not open logs.json: %v", err)
 	}
 	defer f.Close()
 	r := bufio.NewScanner(f)
@@ -29,8 +28,7 @@ func main() {
 		var ll logLine
 		err := json.Unmarshal(r.Bytes(), &ll)
 		if err != nil {
-			fmt.Println(errors.Wrapf(err, "error unmarshalling line %d", lineIndex))
-			os.Exit(1)
+			log.Fatalf("error unmarshalling line: %v", err)
 		}
 		if ll.Src != "rl" {
 			continue
@@ -39,8 +37,7 @@ func main() {
 		lineIndex++
 	}
 	if r.Err() != nil {
-		fmt.Println(errors.Wrap(r.Err(), "failed to read data from logs"))
-		os.Exit(1)
+		log.Fatalf("failed to read data from logs: %v", r.Err())
 	}
 
 	w := csv.NewWriter(os.Stdout)

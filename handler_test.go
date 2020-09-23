@@ -28,10 +28,10 @@ func TestHandlerWithoutDelay(t *testing.T) {
 				w.WriteHeader(50)
 				w.Write([]byte(httpResponseBody))
 			},
-			expectedStatus: 50,
-			expectedLength: len(httpResponseBody),
-			expectedBody:   httpResponseBody,
-			r:              httptest.NewRequest(http.MethodGet, "/index.html", nil),
+			expectedStatus:        50,
+			expectedLength:        len(httpResponseBody),
+			expectedBody:          httpResponseBody,
+			r:                     httptest.NewRequest(http.MethodGet, "/index.html", nil),
 			expectedMessageLogged: true,
 		},
 		{
@@ -40,10 +40,10 @@ func TestHandlerWithoutDelay(t *testing.T) {
 				w.WriteHeader(101)
 				w.Write([]byte(httpResponseBody))
 			},
-			expectedStatus: 101,
-			expectedLength: len(httpResponseBody),
-			expectedBody:   httpResponseBody,
-			r:              httptest.NewRequest(http.MethodGet, "/index.html", nil),
+			expectedStatus:        101,
+			expectedLength:        len(httpResponseBody),
+			expectedBody:          httpResponseBody,
+			r:                     httptest.NewRequest(http.MethodGet, "/index.html", nil),
 			expectedMessageLogged: true,
 		},
 		{
@@ -51,10 +51,10 @@ func TestHandlerWithoutDelay(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte(httpResponseBody))
 			},
-			expectedStatus: 200,
-			expectedLength: len(httpResponseBody),
-			expectedBody:   httpResponseBody,
-			r:              httptest.NewRequest(http.MethodGet, "/index.html", nil),
+			expectedStatus:        200,
+			expectedLength:        len(httpResponseBody),
+			expectedBody:          httpResponseBody,
+			r:                     httptest.NewRequest(http.MethodGet, "/index.html", nil),
 			expectedMessageLogged: true,
 		},
 		{
@@ -63,10 +63,10 @@ func TestHandlerWithoutDelay(t *testing.T) {
 				w.WriteHeader(200)
 				w.Write([]byte(httpResponseBody))
 			},
-			expectedStatus: 200,
-			expectedLength: len(httpResponseBody),
-			expectedBody:   httpResponseBody,
-			r:              httptest.NewRequest(http.MethodGet, "/index.html", nil),
+			expectedStatus:        200,
+			expectedLength:        len(httpResponseBody),
+			expectedBody:          httpResponseBody,
+			r:                     httptest.NewRequest(http.MethodGet, "/index.html", nil),
 			expectedMessageLogged: true,
 		},
 		{
@@ -75,10 +75,10 @@ func TestHandlerWithoutDelay(t *testing.T) {
 				w.WriteHeader(201)
 				w.Write([]byte(httpResponseBody))
 			},
-			expectedStatus: 201,
-			expectedLength: len(httpResponseBody),
-			expectedBody:   httpResponseBody,
-			r:              httptest.NewRequest(http.MethodGet, "/index.html", nil),
+			expectedStatus:        201,
+			expectedLength:        len(httpResponseBody),
+			expectedBody:          httpResponseBody,
+			r:                     httptest.NewRequest(http.MethodGet, "/index.html", nil),
 			expectedMessageLogged: true,
 		},
 		{
@@ -86,10 +86,10 @@ func TestHandlerWithoutDelay(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/other", http.StatusMovedPermanently)
 			},
-			expectedStatus: 301,
-			expectedLength: len("<a href=\"/other\">Moved Permanently</a>.\n\n"),
-			expectedBody:   "<a href=\"/other\">Moved Permanently</a>.\n\n",
-			r:              httptest.NewRequest(http.MethodGet, "/index.html", nil),
+			expectedStatus:        301,
+			expectedLength:        len("<a href=\"/other\">Moved Permanently</a>.\n\n"),
+			expectedBody:          "<a href=\"/other\">Moved Permanently</a>.\n\n",
+			r:                     httptest.NewRequest(http.MethodGet, "/index.html", nil),
 			expectedMessageLogged: true,
 		},
 		{
@@ -97,10 +97,10 @@ func TestHandlerWithoutDelay(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "error!", 500)
 			},
-			expectedStatus: 500,
-			expectedLength: len("error!\n"),
-			expectedBody:   "error!\n",
-			r:              httptest.NewRequest(http.MethodGet, "/index.html", nil),
+			expectedStatus:        500,
+			expectedLength:        len("error!\n"),
+			expectedBody:          "error!\n",
+			r:                     httptest.NewRequest(http.MethodGet, "/index.html", nil),
 			expectedMessageLogged: true,
 		},
 		{
@@ -109,9 +109,9 @@ func TestHandlerWithoutDelay(t *testing.T) {
 				w.WriteHeader(201)
 				w.Write([]byte(httpResponseBody))
 			},
-			expectedStatus: 201,
-			expectedBody:   httpResponseBody,
-			r:              httptest.NewRequest(http.MethodGet, "/health", nil),
+			expectedStatus:        201,
+			expectedBody:          httpResponseBody,
+			r:                     httptest.NewRequest(http.MethodGet, "/health", nil),
 			expectedMessageLogged: false,
 		},
 	}
@@ -127,9 +127,9 @@ func TestHandlerWithoutDelay(t *testing.T) {
 
 		h := Handler{
 			Next: test.handler,
-			Logger: func(method string, url *url.URL, status int, len int64, d time.Duration) {
-				loggedMethod = method
-				loggedURL = url.String()
+			Logger: func(r *http.Request, status int, len int64, d time.Duration) {
+				loggedMethod = r.Method
+				loggedURL = r.URL.String()
 				loggedStatus = status
 				loggedLength = len
 				messageLogged = true
@@ -201,7 +201,7 @@ func TestHandlerDurationLogging(t *testing.T) {
 
 		h := Handler{
 			Next: test.handler,
-			Logger: func(method string, url *url.URL, status int, len int64, d time.Duration) {
+			Logger: func(r *http.Request, status int, len int64, d time.Duration) {
 				actualDuration = d
 			},
 			Skip: SkipHealthEndpoint,
@@ -244,10 +244,9 @@ func TestHeadersAreNotLost(t *testing.T) {
 		r := httptest.NewRequest("GET", "/test", nil)
 
 		h := Handler{
-			Next: test.handler,
-			Logger: func(method string, url *url.URL, status int, len int64, d time.Duration) {
-			},
-			Skip: SkipHealthEndpoint,
+			Next:   test.handler,
+			Logger: func(r *http.Request, status int, len int64, d time.Duration) {},
+			Skip:   SkipHealthEndpoint,
 		}
 		h.ServeHTTP(w, r)
 
@@ -275,6 +274,7 @@ func TestJSONLogMessage(t *testing.T) {
 		written  int64
 		duration time.Duration
 		expected string
+		fields   map[string]string
 	}{
 		{
 			name:     "basic",
@@ -306,6 +306,20 @@ func TestJSONLogMessage(t *testing.T) {
 			duration: time.Millisecond * 300,
 			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":999,"http_9xx":1,"len":454,"ms":300,"method":"POST","path":"/test"}` + "\n",
 		},
+		{
+			name:     "additional fields",
+			now:      func() time.Time { return time.Date(2000, time.January, 2, 3, 4, 5, 6, time.UTC) },
+			method:   "POST",
+			url:      "/test",
+			status:   222,
+			written:  454,
+			duration: time.Millisecond * 300,
+			fields: map[string]string{
+				"field1": "v1",
+				"field2": "v2",
+			},
+			expected: `{"time":"2000-01-02T03:04:05Z","src":"rl","status":222,"http_2xx":1,"len":454,"ms":300,"method":"POST","path":"/test","field1":"v1","field2":"v2"}` + "\n",
+		},
 	}
 
 	for _, test := range tests {
@@ -314,7 +328,7 @@ func TestJSONLogMessage(t *testing.T) {
 			t.Fatalf("%s: failed to parse URL '%v' with error: %v", test.name, test.url, err)
 		}
 
-		actual := JSONLogMessage(test.now, test.method, u, test.status, test.written, test.duration)
+		actual := JSONLogMessage(test.now, test.method, u, test.status, test.written, test.duration, test.fields)
 		if test.expected != actual {
 			t.Errorf("%s: expected '%v', got: '%v'", test.name, test.expected, actual)
 		}
@@ -326,8 +340,23 @@ func TestJSONLogMessage(t *testing.T) {
 }
 
 func BenchmarkJSONLogMessage(b *testing.B) {
+	m := map[string]string{
+		"a": "b",
+		"c": "d",
+	}
 	for i := 0; i < b.N; i++ {
-		JSONLogMessage(time.Now, "GET", &url.URL{Path: "/index.html"}, http.StatusOK, 1024, time.Millisecond*50)
+		JSONLogMessage(time.Now, "GET", &url.URL{Path: "/index.html"}, http.StatusOK, 1024, time.Millisecond*50, m)
+	}
+}
+
+func BenchmarkJSONLogMessageWithHeaders(b *testing.B) {
+	logger := NewJSONLoggerWithHeaders([]string{"a", "b"})
+	r := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
+	r.Header.Add("a", "1")
+	r.Header.Add("b", "2")
+	r.Header.Add("c", "3")
+	for i := 0; i < b.N; i++ {
+		logger(r, http.StatusOK, 1024, time.Millisecond*50)
 	}
 }
 
@@ -336,7 +365,7 @@ func BenchmarkHandler(b *testing.B) {
 		w.Write([]byte("OK"))
 	})
 	h := NewHandler(next)
-	h.Logger = func(method string, url *url.URL, status int, len int64, d time.Duration) {}
+	h.Logger = func(r *http.Request, status int, len int64, d time.Duration) {}
 
 	r := httptest.NewRequest(http.MethodGet, "/index.html", nil)
 	w := httptest.NewRecorder()
