@@ -69,8 +69,7 @@ func JSONLogMessage(now func() time.Time, method string, u *url.URL, status int,
 		`"method":"` + jsonEscape(method) + `",` +
 		`"path":"` + jsonEscape(u.Path) + `"`
 	for k, v := range fields {
-		s += `,`
-		s += `"` + k + `":"` + v + `"`
+		s += `,"` + k + `":"` + v + `"`
 	}
 	return s + "}\n"
 }
