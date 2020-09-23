@@ -18,7 +18,7 @@ func JSONLogger(r *http.Request, status int, len int64, d time.Duration) {
 }
 
 // NewJSONLoggerWithHeaders returns a logger that logs the given headers of an HTTP request.
-func NewJSONLoggerWithHeaders(h []string) Logger {
+func NewJSONLoggerWithHeaders(h ...string) Logger {
 	return func(r *http.Request, status int, length int64, d time.Duration) {
 		m := make(map[string]string, len(h))
 		for _, name := range h {
@@ -91,10 +91,10 @@ func NewHandler(next http.Handler) Handler {
 }
 
 // NewHandlerWithHeaders creates a new responselogger.Handler with default JSON logger which skips logging '/health' URLs and logs the given headers.
-func NewHandlerWithHeaders(next http.Handler, h []string) Handler {
+func NewHandlerWithHeaders(next http.Handler, h ...string) Handler {
 	return Handler{
 		Next:   next,
-		Logger: NewJSONLoggerWithHeaders(h),
+		Logger: NewJSONLoggerWithHeaders(h...),
 		Skip:   SkipHealthEndpoint,
 	}
 }

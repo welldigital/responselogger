@@ -350,7 +350,7 @@ func BenchmarkJSONLogMessage(b *testing.B) {
 }
 
 func BenchmarkJSONLogMessageWithHeaders(b *testing.B) {
-	logger := NewJSONLoggerWithHeaders([]string{"a", "b"})
+	logger := NewJSONLoggerWithHeaders("a", "b")
 	r := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
 	r.Header.Add("a", "1")
 	r.Header.Add("b", "2")
