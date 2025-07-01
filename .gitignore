@@ -1,2 +1,4 @@
 processor/logs.json
 processor/*.csv
+
+.idea/
