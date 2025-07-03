@@ -1,3 +1,3 @@
 module github.com/welldigital/responselogger
 
-go 1.15
+go 1.24.4
